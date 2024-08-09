@@ -1,0 +1,229 @@
+(function() {
+    // Create a container for the display elements
+    let displayContainer = document.createElement('div');
+    displayContainer.id = 'displayContainer';
+    displayContainer.style.position = 'fixed';
+    displayContainer.style.top = '10px';
+    displayContainer.style.left = '50%';
+    displayContainer.style.transform = 'translateX(-50%)';
+    displayContainer.style.zIndex = '1000';
+
+    // Create and style the flight duration input element
+    let durationInput = document.createElement('input');
+    durationInput.type = 'text'; // Text input to allow for both minutes and hours
+    durationInput.id = 'durationInput';
+    durationInput.placeholder = 'Enter flight duration (e.g., 1h or 30m)';
+    durationInput.style.padding = '5px';
+    durationInput.style.fontSize = '16px';
+
+    // Create and style the start button
+    let startButton = document.createElement('button');
+    startButton.innerHTML = 'Start Flight';
+    startButton.style.padding = '5px 10px';
+    startButton.style.fontSize = '16px';
+
+    // Create and style the live fuel display element
+    let liveFuelDisplay = document.createElement('div');
+    liveFuelDisplay.id = 'liveFuelDisplay';
+    liveFuelDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    liveFuelDisplay.style.color = 'white';
+    liveFuelDisplay.style.padding = '10px';
+    liveFuelDisplay.style.borderRadius = '5px';
+    liveFuelDisplay.style.fontSize = '20px';
+    liveFuelDisplay.style.marginTop = '10px';
+    liveFuelDisplay.innerText = 'Live Fuel: 0 gallons';
+
+    // Create and style the fuel display element
+    let fuelDisplay = document.createElement('div');
+    fuelDisplay.id = 'fuelDisplay';
+    fuelDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    fuelDisplay.style.color = 'white';
+    fuelDisplay.style.padding = '10px';
+    fuelDisplay.style.borderRadius = '5px';
+    fuelDisplay.style.fontSize = '20px';
+    fuelDisplay.style.display = 'none'; // Hidden by default
+    fuelDisplay.innerText = 'Fuel: 0 gallons';
+
+    // Append elements to the container
+    displayContainer.appendChild(durationInput);
+    displayContainer.appendChild(startButton);
+    displayContainer.appendChild(liveFuelDisplay);
+    displayContainer.appendChild(fuelDisplay);
+
+    // Append the container to the body
+    document.body.appendChild(displayContainer);
+
+    // Create and style the modal elements
+    let modal = document.createElement('div');
+    modal.id = 'customModal';
+    modal.style.position = 'fixed';
+    modal.style.top = '50%';
+    modal.style.left = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.color = 'white';
+    modal.style.padding = '20px';
+    modal.style.borderRadius = '10px';
+    modal.style.zIndex = '1001';
+    modal.style.display = 'none'; // Hidden by default
+
+    let modalMessage = document.createElement('p');
+    modalMessage.id = 'modalMessage';
+    modalMessage.style.marginBottom = '20px';
+    modalMessage.style.fontSize = '18px';
+
+    let okButton = document.createElement('button');
+    okButton.innerHTML = 'OK';
+    okButton.style.padding = '10px 20px';
+    okButton.style.fontSize = '16px';
+    okButton.onclick = function() {
+        handleModalOkClick();
+    };
+
+    modal.appendChild(modalMessage);
+    modal.appendChild(okButton);
+    document.body.appendChild(modal);
+
+    let currentFuel = 0;
+    let fuelDrainRate = 800; // Gallons per second
+    let fuelInterval;
+    let waitingForShutdownConfirmation = false;
+    let emergencyAnnounced = false; // Flag to ensure announcement is made only once
+    let drainDelayTimer; // Timer for delayed fuel draining
+
+    startButton.onclick = function() {
+        // Get the flight duration from the input
+        let input = durationInput.value.trim();
+        if (!input) {
+            showModal('Please enter a valid flight duration.', false);
+            return;
+        }
+
+        let flightDurationHours = 0;
+
+        // Check if the input contains hours
+        if (input.toLowerCase().includes('h')) {
+            let hours = parseFloat(input.toLowerCase().replace('h', ''));
+            if (!isNaN(hours)) {
+                flightDurationHours += hours;
+            }
+        }
+
+        // Check if the input contains minutes
+        if (input.toLowerCase().includes('m')) {
+            let minutes = parseFloat(input.toLowerCase().replace('m', ''));
+            if (!isNaN(minutes)) {
+                flightDurationHours += minutes / 60; // Convert minutes to hours
+            }
+        }
+
+        if (flightDurationHours <= 0) {
+            showModal('Please enter a valid flight duration in hours or minutes.', false);
+            return;
+        }
+
+        // Calculate the required fuel based on flight duration
+        let requiredFuel = fuelDrainRate * 3600 * flightDurationHours; // Gallons
+        currentFuel = requiredFuel;
+        liveFuelDisplay.innerText = `Live Fuel: ${currentFuel.toFixed(2)} gallons`;
+
+        if (fuelInterval) {
+            clearInterval(fuelInterval);
+        }
+
+        // Delay the start of fuel draining by 3 seconds
+        if (drainDelayTimer) {
+            clearTimeout(drainDelayTimer);
+        }
+        drainDelayTimer = setTimeout(() => {
+            fuelInterval = setInterval(drainFuel, 1000); // Start draining fuel every second after delay
+        }, 3000); // 3000 milliseconds = 3 seconds
+    };
+
+    function drainFuel() {
+        if (currentFuel > 0) {
+            currentFuel -= fuelDrainRate;
+            liveFuelDisplay.innerText = `Live Fuel: ${currentFuel.toFixed(2)} gallons`;
+
+            if (currentFuel <= 0) {
+                currentFuel = 0;
+                liveFuelDisplay.innerText = 'Live Fuel: 0 gallons';
+                clearInterval(fuelInterval);
+                askToShutdownEngines();
+            }
+        }
+    }
+
+    function askToShutdownEngines() {
+        showModal('Fuel exhausted! Click OK to shut down the engines.', true);
+        waitingForShutdownConfirmation = true;
+    }
+
+    function shutdownEngines() {
+        if (typeof controls !== 'undefined' && controls.setters && controls.setters.toggleEngines) {
+            try {
+                // Use the provided function to toggle engines off
+                controls.setters.toggleEngines.set(); // Toggles engines off
+                console.log('Engines have been shut down.');
+
+                // Schedule the emergency announcement after a 13-second delay
+                setTimeout(() => {
+                    declareEmergency();
+                }, 13000); // 13000 milliseconds = 13 seconds
+
+            } catch (e) {
+                console.error('Failed to shut down engines:', e);
+            }
+        } else {
+            console.warn('Controls setters or toggleEngines not found.');
+        }
+    }
+
+    function handleModalOkClick() {
+        modal.style.display = 'none';
+        if (waitingForShutdownConfirmation) {
+            shutdownEngines();
+        } else {
+            // If emergency has not been announced, this should not be reached
+            console.error('Unexpected state: No shutdown confirmation required.');
+        }
+    }
+
+    function showModal(message, isActionRequired) {
+        modalMessage.innerText = message;
+        modal.style.display = 'block';
+        waitingForShutdownConfirmation = isActionRequired;
+    }
+
+    function declareEmergency() {
+        // Simulate AI announcement
+        if (!emergencyAnnounced) {
+            if ('speechSynthesis' in window) {
+                let utterance = new SpeechSynthesisUtterance("B737, you are cleared to land on any runway that is in sight. Stay safe.");
+                utterance.voice = speechSynthesis.getVoices().find(voice => voice.name === 'Google US English'); // Optional: Select a specific voice
+                speechSynthesis.speak(utterance);
+                emergencyAnnounced = true; // Set the flag to true after making the announcement
+            } else {
+                console.warn('Speech Synthesis API is not supported in this browser.');
+            }
+        }
+        // Ensure the modal is hidden after the emergency has been declared
+        modal.style.display = 'none';
+    }
+
+    function toggleDisplay() {
+        if (displayContainer.style.display === 'none') {
+            displayContainer.style.display = 'block';
+        } else {
+            displayContainer.style.display = 'none';
+        }
+    }
+
+    // Listen for keydown events to toggle display with the "Z" key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'z' || event.key === 'Z') {
+            toggleDisplay();
+        }
+    });
+
+})();
