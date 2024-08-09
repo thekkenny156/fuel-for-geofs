@@ -12,7 +12,7 @@
     let durationInput = document.createElement('input');
     durationInput.type = 'text'; // Text input to allow for both minutes and hours
     durationInput.id = 'durationInput';
-    durationInput.placeholder = 'Enter flight duration (e.g., 1h or 30m)';
+    durationInput.placeholder = 'Enter flight duration (e.g., 1h 30m)';
     durationInput.style.padding = '5px';
     durationInput.style.fontSize = '16px';
 
@@ -85,7 +85,7 @@
     document.body.appendChild(modal);
 
     let currentFuel = 0;
-    let fuelDrainRate = 800; // Gallons per second
+    let fuelDrainRate = 1; // Gallons per second
     let fuelInterval;
     let waitingForShutdownConfirmation = false;
     let emergencyAnnounced = false; // Flag to ensure announcement is made only once
@@ -99,31 +99,31 @@
             return;
         }
 
-        let flightDurationHours = 0;
+        let totalFlightTimeInSeconds = 0;
 
         // Check if the input contains hours
         if (input.toLowerCase().includes('h')) {
-            let hours = parseFloat(input.toLowerCase().replace('h', ''));
+            let hours = parseFloat(input.toLowerCase().split('h')[0]);
             if (!isNaN(hours)) {
-                flightDurationHours += hours;
+                totalFlightTimeInSeconds += hours * 3600; // Convert hours to seconds
             }
         }
 
         // Check if the input contains minutes
         if (input.toLowerCase().includes('m')) {
-            let minutes = parseFloat(input.toLowerCase().replace('m', ''));
+            let minutes = parseFloat(input.toLowerCase().split('m')[0].split(' ').pop());
             if (!isNaN(minutes)) {
-                flightDurationHours += minutes / 60; // Convert minutes to hours
+                totalFlightTimeInSeconds += minutes * 60; // Convert minutes to seconds
             }
         }
 
-        if (flightDurationHours <= 0) {
+        if (totalFlightTimeInSeconds <= 0) {
             showModal('Please enter a valid flight duration in hours or minutes.', false);
             return;
         }
 
         // Calculate the required fuel based on flight duration
-        let requiredFuel = fuelDrainRate * 3600 * flightDurationHours; // Gallons
+        let requiredFuel = fuelDrainRate * totalFlightTimeInSeconds; // Gallons
         currentFuel = requiredFuel;
         liveFuelDisplay.innerText = `Live Fuel: ${currentFuel.toFixed(2)} gallons`;
 
