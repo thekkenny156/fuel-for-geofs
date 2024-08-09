@@ -14,3 +14,4 @@ copy the code into console by doing ctrl shift i
 i cant do tampermonkey cos i need dev tools
 and i simply cant activate due to storage 
 enjoy.
+tamper with it i dont care. just please dont hack me
