@@ -10,9 +10,9 @@
 
     // Create and style the flight duration input element
     let durationInput = document.createElement('input');
-    durationInput.type = 'text'; // Text input to allow for both minutes and hours
+    durationInput.type = 'text'; // Text input to allow for hours, minutes, and seconds
     durationInput.id = 'durationInput';
-    durationInput.placeholder = 'Enter flight duration (e.g., 1h 30m)';
+    durationInput.placeholder = 'Enter flight duration (e.g., 1h 30m 45s)';
     durationInput.style.padding = '5px';
     durationInput.style.fontSize = '16px';
 
@@ -101,24 +101,26 @@
 
         let totalFlightTimeInSeconds = 0;
 
-        // Check if the input contains hours
-        if (input.toLowerCase().includes('h')) {
-            let hours = parseFloat(input.toLowerCase().split('h')[0]);
-            if (!isNaN(hours)) {
-                totalFlightTimeInSeconds += hours * 3600; // Convert hours to seconds
-            }
+        // Extract and convert hours
+        let hoursMatch = input.match(/(\d+)\s*h/i);
+        if (hoursMatch) {
+            totalFlightTimeInSeconds += parseInt(hoursMatch[1]) * 3600; // Convert hours to seconds
         }
 
-        // Check if the input contains minutes
-        if (input.toLowerCase().includes('m')) {
-            let minutes = parseFloat(input.toLowerCase().split('m')[0].split(' ').pop());
-            if (!isNaN(minutes)) {
-                totalFlightTimeInSeconds += minutes * 60; // Convert minutes to seconds
-            }
+        // Extract and convert minutes
+        let minutesMatch = input.match(/(\d+)\s*m/i);
+        if (minutesMatch) {
+            totalFlightTimeInSeconds += parseInt(minutesMatch[1]) * 60; // Convert minutes to seconds
+        }
+
+        // Extract and convert seconds
+        let secondsMatch = input.match(/(\d+)\s*s/i);
+        if (secondsMatch) {
+            totalFlightTimeInSeconds += parseInt(secondsMatch[1]); // Add seconds directly
         }
 
         if (totalFlightTimeInSeconds <= 0) {
-            showModal('Please enter a valid flight duration in hours or minutes.', false);
+            showModal('Please enter a valid flight duration in hours, minutes, or seconds.', false);
             return;
         }
 
